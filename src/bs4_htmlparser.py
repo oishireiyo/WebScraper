@@ -25,17 +25,16 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 class BeautifulSoupHTMLParser(object):
   # https://qiita.com/Chanmoro/items/db51658b073acddea4ac
   # Constructor
-  def __init__(self, url: str):
-    self.url = url
-    self.response = requests.get(url)
-    self.response.encoding = self.response.apparent_encoding
-    print(self.response.text)
-    self.soup = BeautifulSoup(self.response.text, features='html.parser')
+  def __init__(self):
+    self.url = 'setme'
+    self.soup = None
 
   # Setter
-  def set_response(self, url: str) -> None:
+  def set_url(self, url: str) -> None:
     self.url = url
-    self.response = requests.get(url)
+    response = requests.get(url)
+    response.encoding = response.apparent_encoding
+    self.soup = BeautifulSoup(response.text, features='html.parser')
 
   def set_soup(self, html: str) -> None:
     self.soup = BeautifulSoup(html, 'html.parser')
@@ -113,7 +112,7 @@ class BeautifulSoupHTMLParser(object):
       script.decompose()
 
     # テキストのみを取得(タグは全て取る)
-    text = self.soup.get_text()
+    text = self.soup.get_text(separator='\n')
 
     # テキストを改行毎にリストに入れ、リスト内の要素の前後の空白を削除
     lines = [line.strip() for line in text.splitlines()]
@@ -137,8 +136,8 @@ class BeautifulSoupHTMLParser(object):
         file.write(response.content)
 
 if __name__ == '__main__':
-  parser = BeautifulSoupHTMLParser(url='https://d1d76jlpbzebww.cloudfront.net/')
-  # elements = parser.get_elements(tag='a')
+  parser = BeautifulSoupHTMLParser()
+  parser.set_url(url='https://d1d76jlpbzebww.cloudfront.net/')
   text = parser.get_all_texts()
-  # print(text)
+  print(text)
   # parser.get_all_images()
