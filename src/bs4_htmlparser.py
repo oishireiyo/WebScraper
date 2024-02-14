@@ -3,6 +3,7 @@ import os
 import sys
 import io
 from typing import Union
+import re
 
 # Web scraping
 import requests
@@ -25,29 +26,31 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 class BeautifulSoupHTMLParser(object):
   # https://qiita.com/Chanmoro/items/db51658b073acddea4ac
   # Constructor
-  def __init__(self, url: str):
+  def __init__(self, url: Union[str, None]):
     self.url = url
-    self.response = requests.get(url)
-    self.response.encoding = self.response.apparent_encoding
-    print(self.response.text)
-    self.soup = BeautifulSoup(self.response.text, features='html.parser')
+    self.response = None
+    self.soup = None
 
   # Setter
-  def set_response(self, url: str) -> None:
+  def set_url(self, url: str) -> None:
     self.url = url
-    self.response = requests.get(url)
 
-  def set_soup(self, html: str) -> None:
-    self.soup = BeautifulSoup(html, 'html.parser')
+  def set_response(self, url: str) -> None:
+    self.set_url(url=rul)
+    self.response = requests.get(url)
+    self.response.encoding = self.response.apparent_encoding
+
+  def set_soup(self, html: Union[str, None]=None) -> None:
+    self.soup = BeautifulSoup(self.response.text if html is None else html, features='html.parser')
 
   # Getter
   def get_url(self):
     return self.url
 
-  def get_element(self, tag: str) -> str:
+  def get_element_by_tag(self, tag: str) -> str:
     return self.soup.find(tag)
 
-  def get_elements(self, tag: str) -> list[str]:
+  def get_elements_by_tag(self, tag: str) -> list[str]:
     return self.soup.find_all(tag)
 
   # 一致するid属性を持つ要素
@@ -123,22 +126,60 @@ class BeautifulSoupHTMLParser(object):
 
     return text
 
-  #全てのイメージのみを取得
+  # 全てのイメージのみを取得
   def cutout_filename_without_appendix(self, path: str) -> str:
     file = os.path.basename(path)
     file_without_appendix = os.path.splitext(file)[0]
     return file_without_appendix
 
   def get_all_images(self, appendix: str='png'):
-    urls = [self.get_attribute_from_element(element=element, attr_name='src') for element in self.get_elements(tag='img')]
+    urls = [self.get_attribute_from_element(element=element, attr_name='src') for element in self.get_elements_by_tag(tag='img')]
     for url in urls:
       response = requests.get(url)
       with open(f'assets/{self.cutout_filename_without_appendix(path=url)}.{appendix}', 'wb') as file:
         file.write(response.content)
 
+  # テキストを綺麗にする
+  def text_cosmetics(self, text: str, impurities: list[str]=['\n', '\t', '\r', '\s', '\f'], replacer: str=''):
+    # \n: 改行
+    # \t: タブ
+    # \r: リターン
+    # \s: 空白
+    # \f: 改ページ
+    for impurity in impurities:
+      text = text.replace(impurity, replacer)
+    return text
+
+  def texts_cosmetics(self, texts: list[str], impurities: list[str]=['\n', '\t'], replacer: str=''):
+    texts = [self.text_cosmetics(text=text, impurities=impurities, replacer=replacer) for text in texts]
+    return texts
+
+  def text_cosmetics_re(self, text: str, impurities: list[str]=[r'\u[0-9]{4}'], replacer: str=''):
+    for impurity in impurities:
+      text = re.sub(impurity, replacer, text, flags=re.UNICODE)
+    return text
+
+  def texts_cosmetics_re(self, texts: list[str], impurities: list[str]=[r'\u[0-9]{4}'], replacer: str=''):
+    texts = [self.text_cosmetics_re(text=text, impurities=impurities, replacer=replacer) for text in texts]
+    return texts
+
+  def text_remove_unicode(self, text: str):
+    return text.encode('ascii', 'ignore')
+
+  def texts_remove_unicode(self, texts: list[str]):
+    texts = [self.text_remove_unicode(text=text) for text in texts]
+    return texts
+
+  def remove_boid_texts(self, texts: str):
+    return [text for text in texts if text != '']
+
 if __name__ == '__main__':
   parser = BeautifulSoupHTMLParser(url='https://d1d76jlpbzebww.cloudfront.net/')
-  # elements = parser.get_elements(tag='a')
+  # elements = parser.get_elements_by_tag(tag='a')
   text = parser.get_all_texts()
   # print(text)
   # parser.get_all_images()
+
+  text = re.sub(r'\\u[0-9]+', 'hoge', 'Copyright\u2002© HOUSE\u2002WELLNESS\u2002FOODS Co.LTD.All\u2002rights\u2002reserved.')
+  print(text)
+  print('Copyright\u2002© HOUSE\u2002WELLNESS\u2002FOODS Co.LTD.All\u2002rights\u2002reserved.')
